@@ -43,6 +43,12 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
         WP_CLI::success(count($posts) . ' posts views recalculated.');
     }
 
+    public function flush()
+    {
+        $this->rpv->connect_redis();
+        $this->rpv->redis->flushAll();
+    }
+
 }
 
 WP_CLI::add_command('rpv', 'WP_CLI_Redis_Page_Views_Purge_Command');

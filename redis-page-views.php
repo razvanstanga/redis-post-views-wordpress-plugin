@@ -66,10 +66,16 @@ class Redis_Page_Views {
         $post_id = intval($_GET['id']);
 
         $this->connect_redis();
-        $this->redis->incr('post-' . $post_id);
-        $this->redis->sAdd('posts', $post_id);
+        $views = $this->redis->get("post-" . $post_id);
 
-        //echo $this->redis->get('post-' . $post_id);
+        if ($views != null) {
+            $this->redis->incr("post-" . $post_id);
+        } else {
+            $this->redis->set("post-" . $post_id, 0);
+        }
+        $this->redis->sAdd("posts", $post_id);
+
+        //echo $views++;
 
         wp_die();
     }
