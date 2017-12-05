@@ -17,7 +17,7 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
     }
 
     /**
-     * Adds the views
+     * Adds the views to database using add_post_meta / update_post_meta
      *
      * ## EXAMPLES
      *
@@ -45,7 +45,7 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
     }
 
     /**
-     * Delete all data from Redis
+     * Remove all keys from all databases.
      *
      * ## EXAMPLES
      *
@@ -56,7 +56,7 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
     public function flush()
     {
         $this->rpv->connect_redis();
-        $this->rpv->redis->flushAll();
+        $this->rpv->redis->flushDb();
 
         WP_CLI::success('Redis cache flushed.');
     }
