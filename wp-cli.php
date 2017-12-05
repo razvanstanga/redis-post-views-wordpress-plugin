@@ -23,6 +23,7 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
      *
      *     wp rpv addviews
      *
+     * @return void
      */
     public function addviews()
     {
@@ -43,10 +44,21 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
         WP_CLI::success(count($posts) . ' posts views recalculated.');
     }
 
+    /**
+     * Delete all data from Redis
+     *
+     * ## EXAMPLES
+     *
+     *     wp rpv flush
+     *
+     * @return void
+     */
     public function flush()
     {
         $this->rpv->connect_redis();
         $this->rpv->redis->flushAll();
+
+        WP_CLI::success('Redis cache flushed.');
     }
 
 }

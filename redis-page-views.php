@@ -3,14 +3,14 @@
 Plugin Name: Redis Page Views
 Plugin URI: http://wordpress.org/extend/plugins/redis-page-views/
 Description: Highly optimized page views using Redis
-Version: 1.0
+Version: 1.1
 Author: Razvan Stanga
 Author URI: http://git.razvi.ro/
 License: http://www.apache.org/licenses/LICENSE-2.0
 Text Domain: redis-page-views
 Network: true
 
-Copyright 2016: Razvan Stanga (email: redis-page-views@razvi.ro)
+Copyright 2017: Razvan Stanga (email: redis-page-views@razvi.ro)
 */
 
 class Redis_Page_Views {
@@ -31,25 +31,32 @@ class Redis_Page_Views {
 
     public function __construct()
     {
-        $this->post_meta_key = 'redis_page_views';
+        $this->post_meta_key = defined("RPV_POST_META_KEY") ? constant("RPV_POST_META_KEY") : 'redis_pageviews_count';
         $this->plugin = 'redis-page-views';
-        $this->prefix = 'website';
-        $this->version = '1.0';
+        $this->version = '1.1';
+        $this->redisHost = defined("RPV_REDIS_HOST") ? constant("RPV_REDIS_HOST") : '127.0.0.1';
+        $this->redisPort = defined("RPV_REDIS_PORT") ? constant("RPV_REDIS_PORT") : 6379;
+        $this->redisPass = defined("RPV_REDIS_PASS") ? constant("RPV_REDIS_PASS") : null;
+        $this->redisPrefix = defined("RPV_REDIS_PREFIX") ? constant("RPV_REDIS_PREFIX") : $this->plugin;
 
-        add_action('init', array($this, 'init'));
+        if (function_exists('add_action')) {
+            add_action('init', array($this, 'init'));
+        }
     }
 
     public function init()
     {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_js'));
-        add_action('wp_ajax_redis_page_view', array($this, 'page_view'));
     }
 
     public function connect_redis()
     {
         $this->redis = new Redis();
-        $this->redis->connect('127.0.0.1', 6379);
-        $this->redis->setOption(Redis::OPT_PREFIX, $this->prefix . ':');
+        $this->redis->connect($this->redisHost, $this->redisPort);
+        if ($this->redisPass) {
+            $this->redis->auth($this->redisPass);
+        }
+        $this->redis->setOption(Redis::OPT_PREFIX, $this->redisPrefix . ':');
     }
 
     public function enqueue_js()
@@ -57,27 +64,8 @@ class Redis_Page_Views {
         if (is_page() || is_single()) {
             $post_id = get_the_ID();
             wp_enqueue_script($this->plugin, plugins_url('/js/redis-page-views.js', __FILE__), array('jquery'), $this->version);
-            wp_add_inline_script($this->plugin, "var _rpv = {id: " . $post_id . ", 'url': '" . admin_url('admin-ajax.php') . "'};");
+            wp_add_inline_script($this->plugin, "var _rpv = {id: " . $post_id . ", url: '" . plugins_url('/pageview.php', __FILE__) . "'};");
         }
-    }
-
-    public function page_view()
-    {
-        $post_id = intval($_GET['id']);
-
-        $this->connect_redis();
-        $views = $this->redis->get("post-" . $post_id);
-
-        if ($views != null) {
-            $this->redis->incr("post-" . $post_id);
-        } else {
-            $this->redis->set("post-" . $post_id, 0);
-        }
-        $this->redis->sAdd("posts", $post_id);
-
-        //echo $views++;
-
-        wp_die();
     }
 }
 
