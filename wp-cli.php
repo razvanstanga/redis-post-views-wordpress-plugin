@@ -7,13 +7,13 @@ if (!defined('ABSPATH')) {
 if (!defined('WP_CLI')) return;
 
 /**
- * Redis Page Views
+ * Redis Post Views
  */
-class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
+class WP_CLI_Redis_Post_Views_Purge_Command extends WP_CLI_Command {
 
     public function __construct()
     {
-        $this->rpv = new Redis_Page_Views();
+        $this->rpv = new Redis_Post_Views();
     }
 
     /**
@@ -63,4 +63,4 @@ class WP_CLI_Redis_Page_Views_Purge_Command extends WP_CLI_Command {
 
 }
 
-WP_CLI::add_command('rpv', 'WP_CLI_Redis_Page_Views_Purge_Command');
+WP_CLI::add_command('rpv', 'WP_CLI_Redis_Post_Views_Purge_Command');
