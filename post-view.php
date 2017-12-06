@@ -13,6 +13,8 @@ Network: true
 Copyright 2017: Razvan Stanga (email: redis-post-views@razvi.ro)
 */
 
+define('ABSPATH', dirname(__FILE__) . '/');
+include("../../../wp-config.php");
 include("redis-post-views.php");
 
 class Redis_Post_View extends Redis_Post_Views {
@@ -20,7 +22,6 @@ class Redis_Post_View extends Redis_Post_Views {
     public function __construct()
     {
         parent::__construct();
-
         $this->post_view();
     }
 
@@ -90,19 +91,21 @@ class Redis_Post_View extends Redis_Post_Views {
         }
         $post_id = intval($_GET['id']);
 
-        if ($this->redis_connect()) {
-            $views = $this->redis->get("post-" . $post_id);
+        try {
+            if ($this->redis_connect()) {
+                $views = intval($this->redis->get("post-" . $post_id));
 
-            if ($views != null) {
-                $this->redis->incr("post-" . $post_id);
-            } else {
-                $this->redis->set("post-" . $post_id, 1);
+                if ($views != null) {
+                    $this->redis->incr("post-" . $post_id);
+                } else {
+                    $this->redis->set("post-" . $post_id, 1);
+                }
+                $this->redis->sAdd("posts", $post_id);
+                if (defined("RPV_AJAX_RETURN_VIEWS") && constant("RPV_AJAX_RETURN_VIEWS") == true) {
+                    $views++; echo $views;
+                }
             }
-            $this->redis->sAdd("posts", $post_id);
-            if (defined("RPV_AJAX_RETURN_VIEWS") && RPV_AJAX_RETURN_VIEWS == true) {
-                echo $views++;
-            }
-        }
+        } catch (RedisException $ex) {}
     }
 }
 

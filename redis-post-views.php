@@ -36,14 +36,14 @@ class Redis_Post_Views {
         $this->version = 1.1;
         $this->redisHost = defined("RPV_REDIS_HOST") ? constant("RPV_REDIS_HOST") : "127.0.0.1";
         $this->redisPort = defined("RPV_REDIS_PORT") ? constant("RPV_REDIS_PORT") : 6379;
-        $this->redisPass = defined("RPV_REDIS_PASS") ? constant("RPV_REDIS_PASS") : null;
+        $this->redisAuth = defined("RPV_REDIS_AUTH") ? constant("RPV_REDIS_AUTH") : null;
         $this->redisPrefix = defined("RPV_REDIS_PREFIX") ? constant("RPV_REDIS_PREFIX") : $this->plugin;
         $this->redisDatabase = defined("RPV_REDIS_DATABASE") ? constant("RPV_REDIS_DATABASE") : 0;
 
         $this->redisConnected = false;
         $this->redisException = false;
 
-        if (function_exists('add_action')) {
+        if (function_exists('add_action')) { // only in Wordpress ENV
             add_action('init', array($this, 'init'));
             if (is_admin()) {
                 add_action('admin_menu', array($this, 'add_menu_item'));
@@ -62,10 +62,9 @@ class Redis_Post_Views {
         $this->redis = new Redis();
         try {
             $this->redisConnected = $this->redis->connect($this->redisHost, $this->redisPort);
-            $this->redis->auth($this->redisPass);
-            if ($this->redisDatabase) {
-                $this->redis->select($this->redisDatabase);
-            }
+            if ($this->redisAuth) $this->redis->auth($this->redisAuth);
+            if ($this->redisDatabase) $this->redis->select($this->redisDatabase);
+            if (function_exists('add_action')) $this->redis->ping(); // only in Wordpress ENV
         } catch(RedisException $ex) {
             $this->redisException = $ex->getMessage();
         }
@@ -91,16 +90,18 @@ class Redis_Post_Views {
         }
     }
 
-    public function the_views($display = true, $prefix = '', $postfix = '', $always = false)
+    protected function posts_queue()
     {
-        $post_views = (int) get_post_meta(get_the_ID(), $this->post_meta_key, true);
-        $views_options = get_option('views_options');
-        $output = $prefix . str_replace( array( '%VIEW_COUNT%', '%VIEW_COUNT_ROUNDED%' ), array( number_format_i18n( $post_views ), postviews_round_number( $post_views) ), stripslashes( $views_options['template'] ) ) . $postfix;
-        if($display) {
-            echo apply_filters('rpv_the_views', $output);
-        } else {
-            return apply_filters('rpv_the_views', $output);
+        $posts = array();
+        try {
+            foreach ($this->redis->sMembers('posts') as $post_id) {
+                $posts[$post_id] = $this->redis->get('post-' . $post_id);
+            }
+            $this->postsQueue = $posts;
+        } catch(RedisException $ex) {
+            $this->redisException = $ex->getMessage();
         }
+        return ($this->redisException ? false : true);
     }
 
     public function add_menu_item()
@@ -131,6 +132,7 @@ class Redis_Post_Views {
                                 <td class="manage-column"><strong>Key</strong></td>
                                 <td class="manage-column"><strong>Value</strong></td>
                                 <!--td class="manage-column"><strong>Description</strong></td-->
+                                <!--td class="manage-column"><strong>Sync</strong></td-->
                             </tr>
                         </thead>
                         <tbody>
@@ -139,6 +141,7 @@ class Redis_Post_Views {
                                 <td><?=$key?></td>
                                 <td><?=$value?></td>
                                 <!--td></td-->
+                                <!--td>sync via AJAX</td-->
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -169,7 +172,7 @@ class Redis_Post_Views {
 <?php
                                     echo __("define('RPV_REDIS_HOST', '127.0.0.1');", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_REDIS_PORT', 6379);", $this->plugin); echo "\r\n";
-                                    echo __("define('RPV_REDIS_PASS', '');", $this->plugin); echo "\r\n";
+                                    echo __("define('RPV_REDIS_AUTH', '');", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_REDIS_PREFIX', 'redis-post-views'); // use custom prefix on all keys", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_REDIS_DATABASE', 0); // dbindex, the database number to switch to", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_POST_META_KEY', 'redis_post_views_count');", $this->plugin); echo "\r\n";
@@ -190,11 +193,29 @@ class Redis_Post_Views {
 
             <div class="wrap">
                 <table class="wp-list-table widefat fixed striped">
-                    <tbody>
+                    <?php if ($this->redis_connect() && $this->posts_queue()): ?>
+                        <thead>
+                            <tr>
+                                <td class="manage-column"><strong>Key</strong></td>
+                                <td class="manage-column"><strong>Value</strong></td>
+                                <!--td class="manage-column"><strong>Description</strong></td-->
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach($this->postsQueue as $post_id => $viewCount): ?>
+                            <tr>
+                                <td><?=get_the_title($post_id);?></td>
+                                <td><?=$viewCount?></td>
+                                <!--td></td-->
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
                         <tr>
                             <td>
+                                <?=$this->redisException?>
                             </td>
                         </tr>
+                    <?php endif; ?>
                     </tbody>
                 </table>
             </div>

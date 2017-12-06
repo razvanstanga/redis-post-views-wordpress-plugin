@@ -27,12 +27,13 @@ class WP_CLI_Redis_Post_Views_Purge_Command extends WP_CLI_Command {
      */
     public function addviews()
     {
-        $this->rpv->connect_redis();
+        $this->rpv->redis_connect();
         $posts = $this->rpv->redis->sMembers('posts');
         foreach ($posts as $post_id) {
             $old_views = get_post_meta($post_id, $this->rpv->post_meta_key, true);
             $new_views = $this->rpv->redis->get('post-' . $post_id);
             $this->rpv->redis->delete('post-' . $post_id);
+            $this->rpv->redis->sRem('posts', $post_id);
             if ($old_views) {
                 $total_views = intval($old_views) + $new_views;
                 update_post_meta($post_id, $this->rpv->post_meta_key, $total_views, $old_views);
