@@ -129,8 +129,8 @@ class Redis_Post_Views {
                     <?php if ($this->redis_connect() && $this->redis_info()): ?>
                         <thead>
                             <tr>
-                                <td class="manage-column"><strong>Key</strong></td>
-                                <td class="manage-column"><strong>Value</strong></td>
+                                <td class="manage-column"><strong>Post</strong></td>
+                                <td class="manage-column"><strong>Views</strong></td>
                                 <!--td class="manage-column"><strong>Description</strong></td-->
                                 <!--td class="manage-column"><strong>Sync</strong></td-->
                             </tr>
@@ -147,7 +147,7 @@ class Redis_Post_Views {
                     <?php else: ?>
                         <tr>
                             <td>
-                                <?=$this->redisException?>
+                                <?=$this->redisException;?>
                             </td>
                         </tr>
                     <?php endif; ?>
@@ -212,7 +212,7 @@ class Redis_Post_Views {
                     <?php else: ?>
                         <tr>
                             <td>
-                                <?=$this->redisException?>
+                                <?=$this->redisException;?>
                             </td>
                         </tr>
                     <?php endif; ?>

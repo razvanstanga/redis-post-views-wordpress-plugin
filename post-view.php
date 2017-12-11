@@ -81,7 +81,7 @@ class Redis_Post_View extends Redis_Post_Views {
      */
     public function post_view()
     {
-        if (!isset($_GET['id'])) {
+        if (!isset($_POST['id'])) {
             echo 'Invalid ID';
             return;
         }
