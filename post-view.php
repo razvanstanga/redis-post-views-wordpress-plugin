@@ -14,8 +14,8 @@ Copyright 2017: Razvan Stanga (email: redis-post-views@razvi.ro)
 */
 
 define('ABSPATH', dirname(__FILE__) . '/');
-include("../../../wp-config.php");
-include("redis-post-views.php");
+include('../../../wp-config.php');
+include('redis-post-views.php');
 
 class Redis_Post_View extends Redis_Post_Views {
 
@@ -32,7 +32,7 @@ class Redis_Post_View extends Redis_Post_Views {
      */
     public function exclude_bots()
     {
-        if (defined("RPV_EXCLUDE_BOTS") && RPV_EXCLUDE_BOTS == true) {
+        if ( defined('RPV_EXCLUDE_BOTS') && RPV_EXCLUDE_BOTS == true ) {
             $bots = array(
                 'Google Bot' => 'google'
                 ,'MSN' => 'msnbot'
@@ -63,9 +63,9 @@ class Redis_Post_View extends Redis_Post_Views {
                 ,'soso.com' => 'sosospider'
                 ,'Yandex' => 'yandex'
             );
-            $useragent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
-            foreach ($bots as $name => $lookfor) {
-                if (!empty($useragent) && (false !== stripos($useragent, $lookfor))) {
+            $useragent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? $_SERVER['HTTP_USER_AGENT'] : '';
+            foreach ( $bots as $name => $pattern ) {
+                if ( !empty($useragent) && ( false !== stripos($useragent, $pattern) ) ) {
                     return true;
                     break;
                 }
@@ -81,27 +81,27 @@ class Redis_Post_View extends Redis_Post_Views {
      */
     public function post_view()
     {
-        if (!isset($_POST['id'])) {
+        if ( !isset($_POST['id']) ) {
             echo 'Invalid ID';
             return;
         }
-        if ($this->exclude_bots()) {
+        if ( $this->exclude_bots() ) {
             echo 'Bot detected';
             return;
         }
         $post_id = intval($_GET['id']);
 
         try {
-            if ($this->redis_connect()) {
+            if ( $this->redis_connect() ) {
                 $views = intval($this->redis->get("post-" . $post_id));
 
-                if ($views != null) {
+                if ( $views != null ) {
                     $this->redis->incr("post-" . $post_id);
                 } else {
                     $this->redis->set("post-" . $post_id, 1);
                 }
                 $this->redis->sAdd("posts", $post_id);
-                if (defined("RPV_AJAX_RETURN_VIEWS") && constant("RPV_AJAX_RETURN_VIEWS") == true) {
+                if ( defined("RPV_AJAX_RETURN_VIEWS") && constant("RPV_AJAX_RETURN_VIEWS") == true ) {
                     $views++; echo $views;
                 }
             }
@@ -109,4 +109,4 @@ class Redis_Post_View extends Redis_Post_Views {
     }
 }
 
-$redisPostView = new Redis_Post_View();
+$redis_post_view = new Redis_Post_View();
