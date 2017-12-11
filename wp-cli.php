@@ -27,17 +27,19 @@ class WP_CLI_Redis_Post_Views_Purge_Command extends WP_CLI_Command {
      */
     public function sync()
     {
-        $this->rpv->redis_connect();
-        $posts = $this->rpv->redis->sMembers('posts');
-        foreach ($posts as $post_id) {
-            $this->rpv->sync_views($post_id);
+        if ($this->rpv->redis_connect()) {
+            $posts = $this->rpv->redis->sMembers('posts');
+            foreach ($posts as $post_id) {
+                $this->rpv->sync_views($post_id);
+            }
+            WP_CLI::success(count($posts) . ' posts views synced.');
+        } else {
+            WP_CLI::success('Cannot connect to Redis server.');
         }
-
-        WP_CLI::success(count($posts) . ' posts views synced.');
     }
 
     /**
-     * Remove all keys from all databases.
+     * Delete all keys belonging to this plugin.
      *
      * ## EXAMPLES
      *
@@ -47,10 +49,16 @@ class WP_CLI_Redis_Post_Views_Purge_Command extends WP_CLI_Command {
      */
     public function flush()
     {
-        $this->rpv->connect_redis();
-        $this->rpv->redis->flushDb();
-
-        WP_CLI::success('Redis cache flushed.');
+        if ($this->rpv->redis_connect()) {
+            $posts = $this->rpv->redis->sMembers('posts');
+            foreach ($posts as $post_id) {
+                $this->rpv->redis->delete('post-' . $post_id);
+            }
+            $this->rpv->redis->delete('posts');
+            WP_CLI::success('Redis Page Views cache flushed.');
+        } else {
+            WP_CLI::success('Cannot connect to Redis server.');
+        }
     }
 
 }

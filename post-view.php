@@ -3,7 +3,7 @@
 Plugin Name: Redis Post Views
 Plugin URI: http://wordpress.org/extend/plugins/redis-post-views/
 Description: Highly optimized post views using Redis
-Version: 1.1
+Version: 1.5
 Author: Razvan Stanga
 Author URI: http://git.razvi.ro/
 License: http://www.apache.org/licenses/LICENSE-2.0
