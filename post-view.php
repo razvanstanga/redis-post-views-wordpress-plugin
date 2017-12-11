@@ -89,7 +89,7 @@ class Redis_Post_View extends Redis_Post_Views {
             echo 'Bot detected';
             return;
         }
-        $post_id = intval($_GET['id']);
+        $post_id = intval($_POST['id']);
 
         try {
             if ( $this->redis_connect() ) {

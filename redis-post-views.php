@@ -46,8 +46,19 @@ class Redis_Post_Views {
         if ( function_exists('add_action') ) { // only in Wordpress ENV
             add_action('init', array($this, 'init'));
             if ( is_admin() ) {
-                add_action('admin_menu', array($this, 'add_menu_item'));
-                $this->current_tab = isset($_GET['tab']) ? $_GET['tab'] : 'stats';
+                $this->redis_main_keys = array(
+                    'redis_version'          => 'Version',
+                    'config_file'            => 'Config File',
+                    'uptime_in_seconds'      => 'Uptime',
+                    'connected_clients'      => 'Connected Clients',
+                    'connected_slaves'       => 'Connected Slaves',
+                    'used_memory_human'      => 'Used Memory',
+                    'used_memory_peak_human' => 'Peak Used Memory',
+                    'expired_keys'           => 'Expired Keys',
+                    'evicted_keys'           => 'Evicted Keys',
+                    'keyspace_hits'          => 'Keyspace Hits',
+                    'keyspace_misses'        => 'Keyspace Misses'
+                );
             }
         }
     }
@@ -55,6 +66,28 @@ class Redis_Post_Views {
     public function init()
     {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_js'));
+        if ( is_admin() ) {
+            add_action('admin_menu', array($this, 'add_menu_item'));
+            add_action('wp_ajax_rpv_sync_action', array($this, 'sync_action'));
+            $this->current_tab = isset($_GET['tab']) ? $_GET['tab'] : 'stats';
+
+            if ( $this->current_tab == "posts-queue" ) {
+                wp_enqueue_script($this->plugin, plugins_url('/admin/js/posts-queue.js', __FILE__), array('jquery'), $this->version);
+            } else if ( $this->current_tab == "stats" ) {
+                wp_enqueue_script($this->plugin, plugins_url('/admin/js/Chart.min.js', __FILE__), $this->version);
+            }
+        }
+    }
+
+    public function sync_action()
+    {
+        $post_id = isset($_POST['id']) ? intval($_POST['id']) : 0;
+        if ($post_id) {
+            $this->redis_connect();
+            $this->sync_views($post_id);
+        }
+        echo $post_id; // debugging purposes
+        wp_die();
     }
 
     public function redis_connect()
@@ -83,7 +116,7 @@ class Redis_Post_Views {
     protected function redis_info()
     {
         try {
-            $this->redisInfo = $this->redis->info();
+            $this->redis_info = $this->redis->info();
         } catch(redis_exception $ex) {
             $this->redis_exception = $ex->getMessage();
         }
@@ -117,6 +150,56 @@ class Redis_Post_Views {
         add_menu_page(__('Redis Post Views', $this->plugin), __('Redis Post Views', $this->plugin), 'manage_options', $this->plugin . '-plugin', array($this, 'settings_page'), plugins_url() . '/' . $this->plugin . '/icon.png', 100);
     }
 
+    public function sync_views($post_id)
+    {
+        $old_views = get_post_meta($post_id, $this->post_meta_key, true);
+        $new_views = $this->redis->get('post-' . $post_id);
+        $this->redis->delete('post-' . $post_id);
+        $this->redis->sRem('posts', $post_id);
+        if ($old_views) {
+            $total_views = intval($old_views) + $new_views;
+            update_post_meta($post_id, $this->post_meta_key, $total_views, $old_views);
+        } else {
+            add_post_meta($post_id, $this->post_meta_key, $new_views, true);
+        }
+    }
+
+    /**
+     * Get databases that exist in Redis instance
+     *
+     * @param  Credis_Client|Redis $redis
+     * @return array
+     */
+    public function redis_databases()
+    {
+        return array_map(function($db) {
+            return (int) substr($db, 2);
+        }, preg_grep("/^db[0-9]+$/", array_keys($this->redis_info)));
+    }
+
+    /**
+     * Get the next chart color
+     *
+     * @param  integer $i
+     * @return string
+     */
+    public function get_color($i)
+    {
+        if ($i == 0) {
+            return '#3392db';
+        }
+        switch ($i % 4) {
+            case 0:
+                return '#4D5360';
+            case 1:
+                return '#F7464A';
+            case 2:
+                return '#46BFBD';
+            default:
+                return '#FDB45C';
+        }
+    }
+
     public function settings_page()
     {
     ?>
@@ -133,23 +216,76 @@ class Redis_Post_Views {
             <h2><?php echo __('Statistics', $this->plugin) ?></h2>
 
             <div class="wrap">
+                <script type="text/javascript">
+                    var charts = [];
+                </script>
+                <?php $i = 0; $this->redis_connect(); $this->redis_info(); ?>
+
+                <table class="wp-list-table widefat fixed striped">
+                    <?php foreach ($this->redis_main_keys as $key => $label): ?>
+                    <tr>
+                        <th><?php echo __($label, $this->plugin); ?></th>
+                        <?php if ($key == 'uptime_in_seconds'): ?>
+                        <td><?php printf(
+                            '%s day(s) %02d:%02d:%02d',
+                            floor($this->redis_info[$key] / 86400),
+                            floor($this->redis_info[$key] / 3600) % 24,
+                            floor($this->redis_info[$key] / 60) % 60,
+                            floor($this->redis_info[$key] % 60)
+                        ) ?></td>
+                        <?php else: ?>
+                        <td><?php echo $this->redis_info[$key] ?></td>
+                        <?php endif ?>
+                        <?php if ($key == 'redis_version'): ?>
+                        <td rowspan="<?php echo count($this->redis_main_keys); ?>">
+                            <div class="chart">
+                                <h4><?php echo __('Databases', $this->plugin); ?></h4>
+                                <canvas id="chart-<?php echo ++$i ?>" width="400" height="400"></canvas>
+                            </div>
+                        </td>
+                    <?php endif ?>
+                    </tr>
+                    <?php endforeach; ?>
+                </table>
+                <script type="text/javascript">
+                    charts[<?php echo $i ?>] = [];
+                <?php $j = 0; ?>
+                <?php foreach ($this->redis_databases() as $db): ?>
+                    <?php $this->redis->select($db); ?>
+                    charts[<?php echo $i ?>].push({
+                        value: <?php echo $this->redis->dbSize(); ?>,
+                        label: 'Database <?php echo $db ?>',
+                        color: '<?php echo $this->get_color($j) ?>',
+                        highlight: '<?php echo $this->get_color($j++) ?>'
+                    });
+                <?php endforeach ?>
+                </script>
+
+                <script type="text/javascript">
+                    for (var i = 1; i < charts.length; i++) {
+                        new Chart(document.getElementById('chart-' + i).getContext('2d'))
+                            .Pie(charts[i], {
+                                animateRotate: false
+                            });
+                    }
+                </script>
+
+                <h2><?php echo __('Detailed information', $this->plugin) ?></h2>
                 <table class="wp-list-table widefat fixed striped">
                     <?php if ( $this->redis_connect() && $this->redis_info() ): ?>
                         <thead>
                             <tr>
-                                <td class="manage-column"><strong>Post</strong></td>
-                                <td class="manage-column"><strong>Views</strong></td>
+                                <td class="manage-column"><strong>Variabile</strong></td>
+                                <td class="manage-column"><strong>Value</strong></td>
                                 <!--td class="manage-column"><strong>Description</strong></td-->
-                                <!--td class="manage-column"><strong>Sync</strong></td-->
                             </tr>
                         </thead>
                         <tbody>
-                        <?php foreach( $this->redisInfo as $key => $value ): ?>
+                        <?php foreach( $this->redis_info as $key => $value ): ?>
                             <tr>
                                 <td><?php echo $key; ?></td>
                                 <td><?php echo $value; ?></td>
                                 <!--td></td-->
-                                <!--td>sync via AJAX</td-->
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -204,17 +340,19 @@ class Redis_Post_Views {
                     <?php if ( $this->redis_connect() && $this->posts_queue() ): ?>
                         <thead>
                             <tr>
-                                <td class="manage-column"><strong>Key</strong></td>
-                                <td class="manage-column"><strong>Value</strong></td>
-                                <!--td class="manage-column"><strong>Description</strong></td-->
+                                <td class="manage-column"><strong>Post</strong></td>
+                                <td class="manage-column"><strong>Views</strong></td>
+                                <td class="manage-column"><strong>Sync</strong></td>
                             </tr>
                         </thead>
                         <tbody>
                         <?php foreach( $this->postsQueue as $post_id => $viewCount ): ?>
                             <tr>
                                 <td><?php echo get_the_title($post_id); ?></td>
-                                <td><?php echo $viewCount; ?></td>
-                                <!--td></td-->
+                                <td class="views_<?php echo $post_id; ?>"><?php echo $viewCount; ?></td>
+                                <td>
+                                    <a href="#" data-post-id="<?php echo $post_id; ?>" class="rpv_sync"><span class="dashicons dashicons-image-rotate"></span></a>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
