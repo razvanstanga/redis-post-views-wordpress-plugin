@@ -1,17 +1,4 @@
 <?php
-/*
-Plugin Name: Redis Post Views
-Plugin URI: http://wordpress.org/extend/plugins/redis-post-views/
-Description: Highly optimized post views using Redis
-Version: 1.5
-Author: Razvan Stanga
-Author URI: http://git.razvi.ro/
-License: http://www.apache.org/licenses/LICENSE-2.0
-Text Domain: redis-post-views
-Network: true
-
-Copyright 2017: Razvan Stanga (email: redis-post-views@razvi.ro)
-*/
 
 class Redis_Post_Views {
     private $data = [];
@@ -31,8 +18,9 @@ class Redis_Post_Views {
 
     public function __construct()
     {
-        $this->plugin           = 'redis-post-views';
-        $this->version          = 1.4;
+        $this->plugin           = 'post-views-redis';
+        $this->version          = RPV_VERSION;
+        $this->settings_file    = defined('RPV_REDIS_HOST') ? true : false;
         $this->post_meta_key    = defined('RPV_POST_META_KEY') ? constant('RPV_POST_META_KEY') : 'redis_post_views_count';
         $this->redis_host       = defined('RPV_REDIS_HOST') ? constant('RPV_REDIS_HOST') : '127.0.0.1';
         $this->redis_port       = defined('RPV_REDIS_PORT') ? constant('RPV_REDIS_PORT') : 6379;
@@ -55,6 +43,7 @@ class Redis_Post_Views {
      */
     public function init()
     {
+        $this->plugin_url      = plugins_url('', dirname(__FILE__));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_js'));
         if ( is_admin() ) {
             add_action('admin_menu', array($this, 'add_menu_item'));
@@ -76,9 +65,9 @@ class Redis_Post_Views {
             );
 
             if ( $this->current_tab == "posts-queue" ) {
-                wp_enqueue_script($this->plugin, plugins_url('/admin/js/posts-queue.js', __FILE__), array('jquery'), $this->version);
+                wp_enqueue_script($this->plugin, $this->plugin_url . '/admin/js/posts-queue.js', array('jquery'), $this->version);
             } else if ( $this->current_tab == "stats" ) {
-                wp_enqueue_script($this->plugin, plugins_url('/admin/js/Chart.min.js', __FILE__), $this->version);
+                wp_enqueue_script($this->plugin, $this->plugin_url . '/admin/js/Chart.min.js', $this->version);
             }
         }
     }
@@ -137,8 +126,11 @@ class Redis_Post_Views {
         $this->redis_connect();
         $posts = array();
         try {
-            foreach ( $this->redis->sort('posts', array('sort' => 'desc')) as $post_id ) {
-                $posts[$post_id] = $this->redis->get('post-' . $post_id);
+            $redis_posts = $this->redis->sort('posts', array('sort' => 'desc'));
+            if ( is_array($redis_posts) ) {
+                foreach ( $redis_posts as $post_id ) {
+                    $posts[$post_id] = $this->redis->get('post-' . $post_id);
+                }
             }
             $this->posts_queue = $posts;
         } catch(RedisException $ex) {
@@ -167,8 +159,8 @@ class Redis_Post_Views {
     public function enqueue_js()
     {
         if ( (is_page() || is_single()) && $post_id = get_the_ID() ) {
-            wp_enqueue_script($this->plugin, plugins_url('/js/redis-post-views.js', __FILE__), array('jquery'), $this->version);
-            wp_add_inline_script($this->plugin, "var _rpv = {id: " . $post_id . ", url: '" . plugins_url('/post-view.php', __FILE__) . "'};");
+            wp_enqueue_script($this->plugin, $this->plugin_url . '/js/init.js', array('jquery'), $this->version);
+            wp_add_inline_script($this->plugin, "var _rpv = {id: " . $post_id . ", url: '" . $this->plugin_url . '/post-view.php' . "'};");
         }
     }
 
@@ -179,7 +171,7 @@ class Redis_Post_Views {
      */
     public function add_menu_item()
     {
-        add_menu_page(__('Redis Post Views', $this->plugin), __('Redis Post Views', $this->plugin), 'manage_options', $this->plugin . '-plugin', array($this, 'admin_page'), plugins_url() . '/' . $this->plugin . '/icon.png', 100);
+        add_menu_page(__('Redis Post Views', $this->plugin), __('Redis Post Views', $this->plugin), 'manage_options', $this->plugin . '-plugin', array($this, 'admin_page'), $this->plugin_url . '/icon.png', 100);
     }
 
     /**
@@ -272,8 +264,10 @@ class Redis_Post_Views {
             <h1><?php echo __('Redis Post Views', $this->plugin)?></h1>
 
             <h2 class="nav-tab-wrapper">
-                <a class="nav-tab <?php if($this->current_tab == 'stats'): ?>nav-tab-active<?php endif; ?>" href="<?php echo admin_url() ?>index.php?page=<?php echo $this->plugin?>-plugin&amp;tab=stats"><?php echo __('Statistics', $this->plugin)?></a>
-                <a class="nav-tab <?php if($this->current_tab == 'posts-queue'): ?>nav-tab-active<?php endif; ?>" href="<?php echo admin_url() ?>index.php?page=<?php echo $this->plugin?>-plugin&amp;tab=posts-queue"><?php echo __('Posts queue', $this->plugin)?></a>
+                <?php if($this->settings_file): ?>
+                    <a class="nav-tab <?php if($this->current_tab == 'stats'): ?>nav-tab-active<?php endif; ?>" href="<?php echo admin_url() ?>index.php?page=<?php echo $this->plugin?>-plugin&amp;tab=stats"><?php echo __('Statistics', $this->plugin)?></a>
+                    <a class="nav-tab <?php if($this->current_tab == 'posts-queue'): ?>nav-tab-active<?php endif; ?>" href="<?php echo admin_url() ?>index.php?page=<?php echo $this->plugin?>-plugin&amp;tab=posts-queue"><?php echo __('Posts queue', $this->plugin)?></a>
+                <?php endif; ?>
                 <a class="nav-tab <?php if($this->current_tab == 'conf'): ?>nav-tab-active<?php endif; ?>" href="<?php echo admin_url() ?>index.php?page=<?php echo $this->plugin?>-plugin&amp;tab=conf"><?php echo __('Configuration info', $this->plugin)?></a>
             </h2>
 
@@ -313,25 +307,26 @@ class Redis_Post_Views {
                         <?php endforeach; ?>
                     </table>
                     <script type="text/javascript">
-                        charts[<?php echo $i; ?>] = [];
+                        charts[<?php echo $i; ?>] = {
+                            datasets: [{data: [], backgroundColor: []}],
+                            labels: []
+                        };
                         <?php $j = 0; ?>
                         <?php foreach ($this->redis_databases() as $db): ?>
                             <?php $this->redis->select($db); ?>
-                            charts[<?php echo $i ?>].push({
-                                value: <?php echo $this->redis->dbSize(); ?>,
-                                label: 'Database <?php echo $db ?>',
-                                color: '<?php echo $this->get_chart_color($j) ?>',
-                                highlight: '<?php echo $this->get_chart_color($j++) ?>'
-                            });
+                            charts[<?php echo $i ?>].datasets[0].data.push(<?php echo $this->redis->dbSize(); ?>);
+                            charts[<?php echo $i ?>].datasets[0].backgroundColor.push('<?php echo $this->get_chart_color($i); ?>');
+                            charts[<?php echo $i ?>].labels.push('Database <?php echo $db ?>');
                         <?php endforeach ?>
                     </script>
 
                     <script type="text/javascript">
                         for (var i = 1; i < charts.length; i++) {
-                            new Chart(document.getElementById('chart-' + i).getContext('2d'))
-                                .Pie(charts[i], {
-                                    animateRotate: false
-                                });
+                            new Chart(document.getElementById('chart-' + i).getContext('2d'), {
+                                type: 'doughnut',
+                                data: charts[i],
+                                options: []
+                            });
                         }
                     </script>
 
@@ -416,13 +411,11 @@ class Redis_Post_Views {
                         <tr>
                             <td>
                                 <?php
-                                    echo sprintf('<h4>' . __('You can override in wp-config.php Redis default connection data and other options' . '</h4>', $this->plugin));
+                                    echo sprintf('<h4>' . __('You must create wp-config-rpv.php in WP root containing Redis default connection data and other options' . '</h4>', $this->plugin));
                                 ?>
-                                <textarea cols="100" rows="11">
-/**
- * Redis Post Views plugin
- */
+                                <textarea cols="100" rows="10">
 <?php
+                                    echo '<?php'; echo "\r\n";
                                     echo __("define('RPV_REDIS_HOST', '127.0.0.1');", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_REDIS_PORT', 6379);", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_REDIS_AUTH', '');", $this->plugin); echo "\r\n";
@@ -432,6 +425,14 @@ class Redis_Post_Views {
                                     echo __("define('RPV_EXCLUDE_BOTS', true); // exclude bots like Google ?", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_AJAX_RETURN_VIEWS', true); // does the AJAX request return post views count ?", $this->plugin);
                                 ?></textarea>
+                                <?php
+                                    echo sprintf('<h4>' . __("Then you must include wp-config-rpv.php in wp-config.php after <em>define('ABSPATH', dirname(__FILE__) . '/');</em>" . '</h4>', $this->plugin));
+                                ?>
+                                <textarea cols="100" rows="5">
+/**
+ * Redis Post Views plugin
+ */
+include(ABSPATH . 'wp-config-rpv.php');</textarea>
                                 <br /><br />
                                 <?php
                                     echo __("You can use get_post_meta(\$post_id, RPV_POST_META_KEY, true); to get the post views");
@@ -445,11 +446,4 @@ class Redis_Post_Views {
         </div>
     <?php
     }
-}
-
-$redis_post_views = new Redis_Post_Views();
-
-// WP-CLI
-if (defined('WP_CLI') && WP_CLI) {
-    include('wp-cli.php');
 }
