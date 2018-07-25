@@ -12,7 +12,7 @@ Network: true
 
 Copyright 2017: Razvan Stanga (email: redis-post-views@razvi.ro)
 */
-@include('../../../wp-config-rpv.php');
+@include('../../wp-config-rpv.php');
 
 define('RPV_VERSION', 1.5);
 define('RPV_PATH', dirname( __FILE__ ));

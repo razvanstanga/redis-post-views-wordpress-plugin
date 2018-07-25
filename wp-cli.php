@@ -55,7 +55,7 @@ class WP_CLI_Redis_Post_Views_Purge_Command extends WP_CLI_Command {
                 $this->rpv->redis->delete('post-' . $post_id);
             }
             $this->rpv->redis->delete('posts');
-            WP_CLI::success('Redis Page Views cache flushed.');
+            WP_CLI::success('Redis Post Views cache flushed.');
         } else {
             WP_CLI::success('Cannot connect to Redis server.');
         }

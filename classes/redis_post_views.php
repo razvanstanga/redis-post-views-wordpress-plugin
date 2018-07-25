@@ -411,7 +411,7 @@ class Redis_Post_Views {
                         <tr>
                             <td>
                                 <?php
-                                    echo sprintf('<h4>' . __('You must create wp-config-rpv.php in WP root containing Redis default connection data and other options' . '</h4>', $this->plugin));
+                                    echo sprintf('<h4>' . __('You must create wp-config-rpv.php in wp-content containing Redis default connection data and other options:' . '</h4>', $this->plugin));
                                 ?>
                                 <textarea cols="100" rows="10">
 <?php
@@ -425,14 +425,6 @@ class Redis_Post_Views {
                                     echo __("define('RPV_EXCLUDE_BOTS', true); // exclude bots like Google ?", $this->plugin); echo "\r\n";
                                     echo __("define('RPV_AJAX_RETURN_VIEWS', true); // does the AJAX request return post views count ?", $this->plugin);
                                 ?></textarea>
-                                <?php
-                                    echo sprintf('<h4>' . __("Then you must include wp-config-rpv.php in wp-config.php after <em>define('ABSPATH', dirname(__FILE__) . '/');</em>" . '</h4>', $this->plugin));
-                                ?>
-                                <textarea cols="100" rows="5">
-/**
- * Redis Post Views plugin
- */
-include(ABSPATH . 'wp-config-rpv.php');</textarea>
                                 <br /><br />
                                 <?php
                                     echo __("You can use get_post_meta(\$post_id, RPV_POST_META_KEY, true); to get the post views");
