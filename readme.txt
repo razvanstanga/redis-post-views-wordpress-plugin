@@ -5,7 +5,7 @@ Tags: postviews, redis, cache, caching, optimization, performance, traffic
 Requires at least: 4.5
 Tested up to: 4.9
 Requires PHP: 5.2.4
-Stable tag: 1.6
+Stable tag: 1.7
 License: GPLv2 or later
 
 Highly optimized post views using Redis
@@ -36,7 +36,10 @@ You can do this with get_post_meta(get_the_ID(), RPV_POST_META_KEY, true); php f
 
 == Changelog ==
 
-= 1.5 =
+= 1.7 =
+* optimizations
+
+= 1.6 =
 * moved wp-config-rpv.php wo wp-config for improved compatibility
 
 = 1.5 =
