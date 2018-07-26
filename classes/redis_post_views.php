@@ -43,7 +43,7 @@ class Redis_Post_Views {
      */
     public function init()
     {
-        $this->plugin_url      = plugins_url('', dirname(__FILE__));
+        $this->plugin_url = plugins_url('', dirname(__FILE__));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_js'));
         if ( is_admin() ) {
             add_action('admin_menu', array($this, 'add_menu_item'));
@@ -263,6 +263,13 @@ class Redis_Post_Views {
         <div class="wrap">
             <h1><?php echo __('Redis Post Views', $this->plugin)?></h1>
 
+            <?php $config_file = WP_CONTENT_DIR  . '/wp-config-rpv.php'; ?>
+            <?php if ( !file_exists($config_file) ): ?>
+                <div id="message" class="error fade">
+                    <p>Configuration file <?= $config_file; ?> is missing.</p>
+                </div>
+            <?php endif; ?>
+
             <h2 class="nav-tab-wrapper">
                 <?php if($this->settings_file): ?>
                     <a class="nav-tab <?php if($this->current_tab == 'stats'): ?>nav-tab-active<?php endif; ?>" href="<?php echo admin_url() ?>index.php?page=<?php echo $this->plugin?>-plugin&amp;tab=stats"><?php echo __('Statistics', $this->plugin)?></a>
@@ -273,7 +280,6 @@ class Redis_Post_Views {
 
         <?php if($this->current_tab == 'stats'): ?>
             <h2><?php echo __('Statistics', $this->plugin) ?></h2>
-
             <div class="wrap">
                 <?php if ( $this->redis_info() ): ?>
                     <script type="text/javascript">
@@ -412,6 +418,7 @@ class Redis_Post_Views {
                             <td>
                                 <?php
                                     echo sprintf('<h4>' . __('You must create wp-config-rpv.php in wp-content containing Redis default connection data and other options:' . '</h4>', $this->plugin));
+                                    echo sprintf('<h4>' . __('File path: %s </h4>', $this->plugin), $config_file);
                                 ?>
                                 <textarea cols="100" rows="10">
 <?php
