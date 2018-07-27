@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Redis Post Views
-Plugin URI: http://wordpress.org/extend/plugins/post-views-redis/
+Plugin URI: http://wordpress.org/extend/plugins/optimize-redis-post-views/
 Description: Highly optimized post views using Redis
 Version: 1.7
 Author: Razvan Stanga
