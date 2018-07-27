@@ -8,14 +8,13 @@ Requires PHP: 5.2.4
 Stable tag: 1.7
 License: GPLv2 or later
 
-Highly optimized post views using Redis
+Highly optimized post views counter using Redis
 
 == Description ==
 
 Imagine a high traffic website that needs post views as an algorithm to display posts on the homepage.
-This website also uses <a href="https://wordpress.org/plugins/vcaching/" target="_blank">Varnish Caching</a>. So we need an AJAX based post view counter.
-Now imagine a minimum 5000 concurrent users browsing the website, so we can't use the default "AJAX in Plugins" as live updates on the backend
-using update_post_meta will be very painful for the backend.
+This website also uses <a href="https://wordpress.org/plugins/vcaching/" target="_blank">Varnish Caching</a>. So we need an AJAX based post views counter.
+Now imagine a minimum 5000 concurrent users browsing the website, so we can't use the default "AJAX in Plugins" as live updates on the backend using update_post_meta will be very painful for the backend.
 
 So what can we do ?
 
